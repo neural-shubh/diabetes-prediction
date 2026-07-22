@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DiabetesIQ — Early Risk Detector</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/onnxruntime-web/1.17.0/ort.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0b0f1a; --surface: #111827; --surface2: #1a2235;
+      --border: #1f2d45; --accent: #3b82f6; --accent-glow: rgba(59,130,246,0.18);
+      --danger: #ef4444; --danger-glow: rgba(239,68,68,0.15);
+      --success: #22c55e; --success-glow: rgba(34,197,94,0.15);
+      --text: #f1f5f9; --muted: #64748b; --card-radius: 16px;
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; min-height: 100vh; padding: 0 0 60px; }
+
+    header { padding: 28px 40px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); }
+    .logo-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
+    .logo-text { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
+    .logo-text span { color: var(--accent); }
+    .badge { margin-left: auto; font-size: 11px; font-weight: 500; color: var(--muted); background: var(--surface2); border: 1px solid var(--border); padding: 4px 10px; border-radius: 20px; letter-spacing: 0.5px; }
+
+    .hero { text-align: center; padding: 60px 20px 40px; }
+    .hero-eyebrow { font-size: 12px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); margin-bottom: 16px; }
+    .hero h1 { font-family: 'Syne', sans-serif; font-size: clamp(32px, 5vw, 52px); font-weight: 800; line-height: 1.1; letter-spacing: -1.5px; margin-bottom: 16px; }
+    .hero h1 em { font-style: normal; color: var(--accent); }
+    .hero p { color: var(--muted); font-size: 15px; font-weight: 300; max-width: 480px; margin: 0 auto; line-height: 1.7; }
+
+    .loading-banner { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 20px; text-align: center; font-size: 13px; color: var(--muted); margin-bottom: 16px; display: none; }
+    .loading-banner.show { display: block; }
+
+    .container { max-width: 860px; margin: 0 auto; padding: 0 24px; }
+    .form-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--card-radius); overflow: hidden; }
+
+    .section-header { padding: 20px 28px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+    .section-num { font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 700; color: var(--accent); letter-spacing: 1px; }
+    .section-title { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 600; }
+
+    .basics-row { padding: 24px 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; border-bottom: 1px solid var(--border); }
+    .field label { display: block; font-size: 12px; font-weight: 500; color: var(--muted); margin-bottom: 8px; letter-spacing: 0.3px; }
+    .field input[type="number"] { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-family: 'Inter', sans-serif; font-size: 15px; padding: 11px 14px; outline: none; transition: border-color 0.2s; }
+    .field input[type="number"]:focus { border-color: var(--accent); }
+
+    .gender-toggle { display: flex; gap: 8px; }
+    .gender-toggle input { display: none; }
+    .gender-toggle label { flex: 1; text-align: center; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 11px 8px; font-size: 13px; font-weight: 500; color: var(--muted); cursor: pointer; transition: all 0.2s; margin: 0; }
+    .gender-toggle input:checked + label { background: var(--accent-glow); border-color: var(--accent); color: var(--accent); }
+
+    .symptoms-grid { padding: 24px 28px; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+    .symptom-item input { display: none; }
+    .symptom-item label { display: flex; align-items: center; gap: 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; cursor: pointer; transition: all 0.18s; font-size: 13px; color: var(--muted); user-select: none; }
+    .symptom-item label:hover { border-color: #2a3a55; color: var(--text); }
+    .symptom-item input:checked + label { background: var(--accent-glow); border-color: var(--accent); color: var(--text); }
+    .check-box { width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.18s; }
+    .symptom-item input:checked + label .check-box { background: var(--accent); border-color: var(--accent); }
+    .check-icon { display: none; }
+    .symptom-item input:checked + label .check-icon { display: block; }
+
+    .submit-row { padding: 20px 28px 24px; border-top: 1px solid var(--border); }
+    .btn-predict { width: 100%; background: var(--accent); color: #fff; font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; border: none; border-radius: 12px; padding: 15px; cursor: pointer; transition: opacity 0.2s, transform 0.15s; }
+    .btn-predict:hover { opacity: 0.88; }
+    .btn-predict:active { transform: scale(0.99); }
+    .btn-predict:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    #result { margin-top: 20px; border-radius: var(--card-radius); padding: 28px; display: none; border: 1px solid var(--border); animation: slideUp 0.3s ease; }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+    #result.positive { background: var(--danger-glow); border-color: var(--danger); }
+    #result.negative { background: var(--success-glow); border-color: var(--success); }
+    .result-label { font-size: 11px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+    .result-verdict { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800; margin-bottom: 6px; }
+    #result.positive .result-verdict { color: var(--danger); }
+    #result.negative .result-verdict { color: var(--success); }
+    .result-sub { font-size: 13px; color: var(--muted); margin-bottom: 20px; line-height: 1.6; }
+    .conf-label { font-size: 12px; font-weight: 500; color: var(--muted); margin-bottom: 8px; display: flex; justify-content: space-between; }
+    .conf-bar-bg { height: 6px; background: var(--surface2); border-radius: 10px; overflow: hidden; }
+    .conf-bar-fill { height: 100%; border-radius: 10px; transition: width 0.8s cubic-bezier(.4,0,.2,1); }
+    #result.positive .conf-bar-fill { background: var(--danger); }
+    #result.negative .conf-bar-fill { background: var(--success); }
+    .disclaimer { margin-top: 16px; font-size: 11px; color: var(--muted); line-height: 1.6; padding-top: 16px; border-top: 1px solid var(--border); }
+
+    footer { text-align: center; margin-top: 48px; font-size: 12px; color: var(--muted); }
+    footer a { color: var(--accent); text-decoration: none; }
+
+    @media (max-width: 600px) {
+      header { padding: 20px; }
+      .basics-row { grid-template-columns: 1fr; padding: 20px; }
+      .symptoms-grid { padding: 20px; grid-template-columns: 1fr 1fr; }
+      .submit-row { padding: 16px 20px 20px; }
+      #result { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-dot"></div>
+  <div class="logo-text">Diabetes<span>IQ</span></div>
+  <div class="badge">ML · Random Forest · ONNX</div>
+</header>
+
+<div class="hero">
+  <div class="hero-eyebrow">Early Risk Detection</div>
+  <h1>Know your <em>diabetes risk</em><br/>before it's too late</h1>
+  <p>Answer 16 simple symptom questions. Our trained model gives you an instant risk assessment — runs entirely in your browser.</p>
+</div>
+
+<div class="container">
+  <div class="loading-banner" id="loading-banner">⏳ Loading AI model… please wait</div>
+
+  <div class="form-card">
+    <div class="section-header">
+      <span class="section-num">01</span>
+      <span class="section-title">Basic Information</span>
+    </div>
+    <div class="basics-row">
+      <div class="field">
+        <label for="age">Age</label>
+        <input type="number" id="age" min="1" max="120" placeholder="e.g. 35"/>
+      </div>
+      <div class="field">
+        <label>Gender</label>
+        <div class="gender-toggle">
+          <input type="radio" name="gender" id="male" value="1" checked/>
+          <label for="male">Male</label>
+          <input type="radio" name="gender" id="female" value="0"/>
+          <label for="female">Female</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-header">
+      <span class="section-num">02</span>
+      <span class="section-title">Symptoms — check all that apply</span>
+    </div>
+    <div class="symptoms-grid" id="symptoms-grid"></div>
+
+    <div class="submit-row">
+      <button class="btn-predict" id="predict-btn" onclick="predict()">Analyse Risk →</button>
+    </div>
+  </div>
+
+  <div id="result">
+    <div class="result-label">Assessment Result</div>
+    <div class="result-verdict" id="verdict"></div>
+    <div class="result-sub" id="result-sub"></div>
+    <div class="conf-label"><span>Diabetes Probability</span><span id="conf-pct"></span></div>
+    <div class="conf-bar-bg"><div class="conf-bar-fill" id="conf-bar" style="width:0%"></div></div>
+    <div class="disclaimer">⚠ This tool is for informational purposes only and does not replace professional medical advice. Please consult a doctor for a proper diagnosis.</div>
+  </div>
+
+  <footer>
+    Built by <a href="https://github.com/neural-shubh" target="_blank">neural-shubh</a> · Powered by Random Forest + ONNX Runtime Web
+  </footer>
+</div>
+
+<script>
+  const SYMPTOMS = [
+    'Polyuria','Polydipsia','sudden weight loss','weakness',
+    'Polyphagia','Genital thrush','visual blurring','Itching',
+    'Irritability','delayed healing','partial paresis',
+    'muscle stiffness','Alopecia','Obesity'
+  ];
+  const LABELS = {
+    'Polyuria':'Frequent Urination','Polydipsia':'Excessive Thirst',
+    'sudden weight loss':'Sudden Weight Loss','weakness':'Weakness',
+    'Polyphagia':'Excessive Hunger','Genital thrush':'Genital Thrush',
+    'visual blurring':'Blurry Vision','Itching':'Itching',
+    'Irritability':'Irritability','delayed healing':'Delayed Healing',
+    'partial paresis':'Partial Paresis','muscle stiffness':'Muscle Stiffness',
+    'Alopecia':'Hair Loss','Obesity':'Obesity'
+  };
+
+  // Build symptom checkboxes
+  const grid = document.getElementById('symptoms-grid');
+  SYMPTOMS.forEach(s => {
+    const id = 'sym-' + s.replace(/\s+/g,'-');
+    grid.innerHTML += `
+      <div class="symptom-item">
+        <input type="checkbox" id="${id}"/>
+        <label for="${id}">
+          <span class="check-box">
+            <svg class="check-icon" width="10" height="8" viewBox="0 0 10 8" fill="none">
+              <path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          ${LABELS[s]}
+        </label>
+      </div>`;
+  });
+
+  // Load ONNX models
+  let scalerSession, modelSession;
+  async function loadModels() {
+    document.getElementById('loading-banner').classList.add('show');
+    document.getElementById('predict-btn').disabled = true;
+    try {
+      scalerSession = await ort.InferenceSession.create('./models/scaler.onnx');
+      modelSession  = await ort.InferenceSession.create('./models/diabetes_model.onnx');
+      document.getElementById('loading-banner').classList.remove('show');
+      document.getElementById('predict-btn').disabled = false;
+      document.getElementById('predict-btn').textContent = 'Analyse Risk →';
+    } catch(e) {
+      document.getElementById('loading-banner').textContent = '❌ Failed to load model. Please refresh.';
+    }
+  }
+  loadModels();
+
+  async function predict() {
+    const age = document.getElementById('age').value;
+    if (!age) { alert('Please enter your age.'); return; }
+    if (!scalerSession || !modelSession) { alert('Model still loading, please wait.'); return; }
+
+    const btn = document.getElementById('predict-btn');
+    btn.disabled = true;
+    btn.textContent = 'Analysing…';
+
+    const gender = parseFloat(document.querySelector('input[name="gender"]:checked').value);
+    const values = [parseFloat(age), gender];
+    SYMPTOMS.forEach(s => {
+      const id = 'sym-' + s.replace(/\s+/g,'-');
+      values.push(document.getElementById(id).checked ? 1.0 : 0.0);
+    });
+
+    try {
+      const inputTensor = new ort.Tensor('float32', new Float32Array(values), [1, 16]);
+
+      // Scale
+      const scalerOut = await scalerSession.run({ float_input: inputTensor });
+      const scaledKey = Object.keys(scalerOut)[0];
+      const scaledTensor = scalerOut[scaledKey];
+
+      // Predict
+      const modelOut = await modelSession.run({ float_input: scaledTensor });
+
+      // Get label and probability
+      const labelKey = Object.keys(modelOut).find(k => modelOut[k].type === 'string' || modelOut[k].dims?.[0]);
+      const probKey  = Object.keys(modelOut).find(k => k.includes('prob') || k.includes('Prob'));
+
+      let prediction = 'Negative';
+      let posProb = 0.1;
+
+      // Parse outputs
+      for (const key of Object.keys(modelOut)) {
+        const val = modelOut[key];
+        if (val.data && typeof val.data[0] === 'string') prediction = val.data[0];
+        if (val.data && typeof val.data[0] === 'object' && val.data[0] !== null) {
+          const map = val.data[0];
+          if (map.Positive !== undefined) posProb = map.Positive;
+        }
+      }
+
+      showResult(prediction, posProb);
+    } catch(e) {
+      console.error(e);
+      alert('Prediction failed: ' + e.message);
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'Analyse Risk →';
+  }
+
+  function showResult(prediction, posProb) {
+    const el = document.getElementById('result');
+    const isPositive = prediction === 'Positive';
+    el.className = isPositive ? 'positive' : 'negative';
+    el.style.display = 'block';
+    document.getElementById('verdict').textContent = isPositive ? '⚠ High Diabetes Risk' : '✓ Low Diabetes Risk';
+    document.getElementById('result-sub').textContent = isPositive
+      ? 'Our model detected a high likelihood of early-stage diabetes based on your symptoms. We strongly recommend consulting a healthcare professional.'
+      : 'Based on your symptoms, the model found a low risk of diabetes. Maintain a healthy lifestyle and check in regularly with your doctor.';
+    const pct = Math.round(posProb * 100);
+    document.getElementById('conf-pct').textContent = pct + '%';
+    setTimeout(() => { document.getElementById('conf-bar').style.width = pct + '%'; }, 100);
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+</script>
+</body>
+</html>
