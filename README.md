@@ -1,108 +1,128 @@
-# Diabetes Prediction
+# 🩺 DiabetesIQ — Early Risk Detector
 
-A machine learning project that compares multiple classification algorithms for predicting diabetes outcomes using the Pima Indians Diabetes dataset.
+A machine learning web app that predicts early-stage diabetes risk based on symptoms. Built with Random Forest, converted to ONNX, and runs entirely in the browser — no backend, no server, instant predictions.
 
----
-
-## Overview
-
-This project trains and evaluates four classic ML classifiers on clinical features like glucose, BMI, and blood pressure to predict whether a patient has diabetes. It includes preprocessing, model comparison, hyperparameter tuning, and visualization — all inside a Google Colab notebook.
+🌐 **[Live Demo → neural-shubh.github.io/diabetes-prediction](https://neural-shubh.github.io/diabetes-prediction)**
 
 ---
 
-## Dataset
+## 🖼 Preview
 
-- **File:** `diabetes.csv`
-- **Target column:** `Outcome` (1 = diabetic, 0 = not diabetic)
-- **Features used:**
-
-| Feature | Description |
-|---|---|
-| Pregnancies | Number of times pregnant |
-| Glucose | Plasma glucose concentration |
-| BloodPressure | Diastolic blood pressure (mm Hg) |
-| SkinThickness | Triceps skinfold thickness (mm) |
-| Insulin | 2-hour serum insulin (µU/mL) |
-| BMI | Body mass index |
-| DiabetesPedigreeFunction | Diabetes pedigree function |
-| Age | Age in years |
+> Enter your age, gender, and 14 symptoms → get an instant diabetes risk assessment with confidence score.
 
 ---
 
-## Workflow
+## ⚙️ How It Works
 
-1. **Load Data** — Upload CSV via Google Colab or mount from Google Drive
-2. **Preprocessing** — Fill missing values (`Glucose`, `BloodPressure`, `SkinThickness`, `Insulin`, `BMI`) with column means
-3. **Train/Test Split** — 80/20 split with `random_state=14`
-4. **Feature Scaling** — StandardScaler applied to all features
-5. **Model Training** — Four classifiers trained and evaluated
-6. **Hyperparameter Tuning** — GridSearchCV on Random Forest
-7. **Visualization** — Bar chart comparing model accuracies
-
----
-
-## Models Compared
-
-| Model | Notes |
-|---|---|
-| Logistic Regression | Linear baseline |
-| SVM (SVC) | Kernel-based classifier |
-| Decision Tree | Interpretable tree model |
-| Random Forest | Ensemble method; best candidate for tuning |
-
----
-
-## Hyperparameter Tuning
-
-GridSearchCV is applied to **Random Forest** with 5-fold cross-validation over:
-
-```python
-param_grid = {
-    'n_estimators': [50, 100, 200],
-    'max_depth': [None, 5, 10],
-    'min_samples_split': [2, 5],
-    'min_samples_leaf': [1, 2]
-}
+```
+User fills symptom form on the web app
+        ↓
+ONNX Runtime Web runs the model in the browser
+        ↓
+Scaler normalizes input → Random Forest predicts
+        ↓
+Result: Low Risk ✓ or High Risk ⚠ with probability score
 ```
 
 ---
 
-## Evaluation Metrics
+## 📋 Dataset
 
-- Accuracy Score
-- Classification Report (Precision, Recall, F1)
-- Confusion Matrix
-- Bar chart of model accuracy comparison
+**Early Stage Diabetes Risk Prediction Dataset**
+- 520 patients, 16 features, binary classification
+- Source: UCI Machine Learning Repository
+
+| Feature | Type |
+|---|---|
+| Age | Numeric |
+| Gender | Male / Female |
+| Polyuria | Yes / No |
+| Polydipsia | Yes / No |
+| Sudden Weight Loss | Yes / No |
+| Weakness | Yes / No |
+| Polyphagia | Yes / No |
+| Genital Thrush | Yes / No |
+| Visual Blurring | Yes / No |
+| Itching | Yes / No |
+| Irritability | Yes / No |
+| Delayed Healing | Yes / No |
+| Partial Paresis | Yes / No |
+| Muscle Stiffness | Yes / No |
+| Alopecia | Yes / No |
+| Obesity | Yes / No |
+
+**Target:** `Positive` (diabetic risk) / `Negative` (no risk)
 
 ---
 
-## Getting Started
+## 🤖 Model
 
-### Run on Google Colab
-
-1. Open the notebook in [Google Colab](https://colab.research.google.com/)
-2. Upload `diabetes.csv` when prompted, or mount your Google Drive
-3. Run all cells in order
-
-### Dependencies
-
-```bash
-pip install numpy pandas scikit-learn matplotlib
-```
+| Detail | Value |
+|---|---|
+| Algorithm | Random Forest Classifier |
+| Tuning | GridSearchCV (5-fold CV) |
+| Export | ONNX (runs client-side via ONNX Runtime Web) |
+| Input | 16 features (age, gender, 14 symptoms) |
+| Output | Positive / Negative + probability score |
 
 ---
 
-## Project Structure
+## 🧪 ML Pipeline
+
+1. Load Early Stage Diabetes dataset
+2. Encode categorical features (Yes/No → 1/0, Male/Female → 1/0)
+3. Train/test split (80/20)
+4. StandardScaler normalization
+5. Train & compare Logistic Regression, SVM, Decision Tree, Random Forest
+6. GridSearchCV hyperparameter tuning on Random Forest
+7. Export best model + scaler to ONNX
+
+---
+
+## 📁 Project Structure
 
 ```
 diabetes-prediction/
-├── diabetes_prediction.ipynb   # Main notebook
-├── diabetes.csv                # Dataset
-└── README.md
+├── diabetes_prediction.ipynb   # Training notebook (Google Colab)
+├── diabetes_model.pkl          # Trained Random Forest model
+├── scaler.pkl                  # Fitted StandardScaler
+├── app.py                      # Flask app (local use)
+├── templates/index.html        # Flask template
+├── requirements.txt
+└── docs/                       # GitHub Pages web app
+    ├── index.html              # Frontend (HTML/CSS/JS + ONNX)
+    └── models/
+        ├── diabetes_model.onnx
+        └── scaler.onnx
 ```
 
 ---
 
-## Author
+## 🚀 Run Locally
 
-**Shubh** • [GitHub](https://github.com/neural-shubh)
+```bash
+git clone https://github.com/neural-shubh/diabetes-prediction.git
+cd diabetes-prediction
+pip install -r requirements.txt
+python app.py
+```
+
+Open `http://localhost:5000`
+
+---
+
+## 🛠 Tech Stack
+
+- **ML:** Scikit-learn, Pandas, NumPy, Matplotlib
+- **Export:** skl2onnx
+- **Frontend:** HTML, CSS, JavaScript, ONNX Runtime Web
+- **Hosting:** GitHub Pages
+- **Notebook:** Google Colab
+
+---
+
+## ⚠️ Disclaimer
+
+This tool is for educational and informational purposes only. It does not replace professional medical advice. Please consult a doctor for a proper diagnosis.
+
+---
